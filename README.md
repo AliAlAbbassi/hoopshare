@@ -1,36 +1,108 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# OpenCX — Data Lists
 
-## Getting Started
+A mobile-first landing page that indexes downloadable data lists (**CSV and
+Excel/XLSX**). Each list shows a live record count, region/platform breakdown, a
+5-row preview, and a one-tap download. Files are read straight from public URLs
+(Cloudflare R2) — no database, no upload step.
 
-First, run the development server:
+Built with Next.js (App Router) + Tailwind. Deploys to Vercel as-is.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+---
+
+## ✏️ Adding or replacing a list
+
+**`config/lists.ts` is the only file you edit.** Lists are organised into
+ordered **groups** → **subgroups**; the OpenCX (“open…”) lead lists come first,
+the hotel lists follow.
+
+```ts
+{
+  id: "hotels-us-texas",          // stable, url-safe id (used in api + download)
+  title: "Texas",
+  group: "Hotels",                // top-level section (see GROUP_ORDER)
+  subgroup: "United States — by state",
+  category: "US · State",         // small badge on the card
+  description: "…",
+  url: "https://…/hotels_us_texas.xlsx",   // .csv or .xlsx — detected automatically
+  accent: "indigo",               // color theme
+  icon: "hotel",
+}
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- **Add a list** → append an object to the relevant array.
+- **Replace data** → just swap the `url`. Record count, file size, region &
+  platform chips and the preview are read from the file — nothing else changes.
+- **CSV or XLSX** → both work. XLSX is parsed server-side (the `Leads` sheet is
+  used if present); multi-sheet workbooks and numeric cells are handled.
+- **Any schema** → the header row is read from each file at request time. The
+  preview renderer auto-detects the name/location/contact columns, linkifies
+  emails/phones/URLs, turns `;`- or `|`-separated fields into chips, and hides
+  empty + scoring-metadata columns. A list with totally different columns just
+  works — no column names are hardcoded.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Big subgroups (e.g. the 53 US states) collapse behind a “Show all” toggle, and
+search (top of page) filters across **every** list regardless of grouping.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Ordering
 
-## Learn More
+Groups render in `GROUP_ORDER` and subgroups in `SUBGROUP_ORDER` (top of
+`config/lists.ts`). The OpenCX lead lists are the first group, so the “open…”
+files always appear first.
 
-To learn more about Next.js, take a look at the following resources:
+### Refreshing after replacing a file
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Each list's stats/preview are cached for an hour (and refresh on every deploy).
+To refresh **immediately** after swapping a file at the same URL, set a
+`REVALIDATE_SECRET` env var and call:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+curl -X POST "https://your-site.vercel.app/api/revalidate?secret=YOUR_SECRET"
+```
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🚀 Deploy to Vercel
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Push this repo to GitHub.
+2. Vercel → **New Project → import the repo**. Framework auto-detected. No env
+   vars required to run.
+3. Deploy.
+
+Optional env var:
+
+| Variable            | Purpose                                              |
+| ------------------- | ---------------------------------------------------- |
+| `REVALIDATE_SECRET` | Enables `POST /api/revalidate` to refresh on demand. |
+
+---
+
+## 🧱 How it works (scales to many lists)
+
+The index page is **fully static** — it renders cards from `config/lists.ts`
+with no network calls, so it's instant no matter how many lists you add. Each
+card then **lazily** fetches its own stats/preview from `/api/list/[id]` when it
+scrolls near the viewport, showing a skeleton until ready.
+
+| Path                              | Role                                                                            |
+| --------------------------------- | ------------------------------------------------------------------------------- |
+| `config/lists.ts`                 | The list registry + grouping + branding. **Edit this.**                         |
+| `lib/csv.ts`                      | Dependency-free RFC-4180 CSV reader.                                             |
+| `lib/listData.ts`                 | Reads a CSV **or** XLSX (exceljs) once → sample rows + total + region/platform tallies, cached per-list. |
+| `lib/format.ts`                   | Schema-agnostic helpers: humanize columns, classify values, pick the best region axis. |
+| `app/api/list/[id]/route.ts`      | Returns one list's derived data as JSON (cached).                               |
+| `app/api/download/[id]/route.ts`  | Streams the file with the right `Content-Type` (csv/xlsx) and a clean filename. |
+| `app/api/revalidate/route.ts`     | Optional on-demand cache refresh.                                               |
+| `components/*`                    | `ListBrowser` (search + grouped sections) → `ListCard` (lazy) → `PreviewSheet`. |
+
+CSV/XLSX parsing happens on the server, so there are no CORS issues and the raw
+URL is never needed by the browser.
+
+---
+
+## 🛠 Local development
+
+```bash
+npm install
+npm run dev      # http://localhost:3000
+npm run build    # production build
+```
