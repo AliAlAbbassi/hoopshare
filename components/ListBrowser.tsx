@@ -45,7 +45,7 @@ export function ListBrowser({ lists }: { lists: ListConfig[] }) {
             inputMode="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={`Search ${lists.length} lists — try "texas" or "cloudbeds"…`}
+            placeholder={`Search ${lists.length} lists — try "florida" or "cloudbeds"…`}
             aria-label="Search lists"
             className="w-full rounded-2xl border border-border bg-surface py-3 pl-11 pr-10 text-[15px] text-foreground shadow-sm outline-none transition-shadow placeholder:text-muted focus:shadow-md focus:ring-2 focus:ring-foreground/10"
           />
