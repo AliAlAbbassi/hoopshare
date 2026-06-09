@@ -5,7 +5,7 @@ import { Eye, Building2, MapPin, AlertCircle } from "lucide-react";
 import clsx from "clsx";
 import type { ListConfig } from "@/config/lists";
 import { accentClasses } from "@/lib/accent";
-import { formatNumber, formatCompact, formatBytes } from "@/lib/format";
+import { formatCompact, formatBytes } from "@/lib/format";
 import { useListData } from "@/lib/useListData";
 import { ListIcon } from "./ListIcon";
 import { DownloadButton } from "./DownloadButton";
@@ -90,7 +90,6 @@ export function ListCard({ config }: { config: ListConfig }) {
           <Stat
             value={loaded ? formatCompact(data!.total) : errored ? "—" : null}
             label="prospects"
-            title={loaded ? `${formatNumber(data!.total)} prospects` : undefined}
           />
           <Stat
             value={loaded ? String(data!.columns.length) : errored ? "—" : null}
@@ -102,7 +101,7 @@ export function ListCard({ config }: { config: ListConfig }) {
         {/* Chips / status line */}
         <div className="relative mt-3 min-h-[1.75rem]">
           {loaded && chips.length > 0 ? (
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-nowrap gap-1.5 overflow-hidden [mask-image:linear-gradient(to_right,#000_88%,transparent)]">
               {chips.map((c, i) => (
                 <span
                   key={i}
@@ -131,7 +130,7 @@ export function ListCard({ config }: { config: ListConfig }) {
         </div>
 
         {/* Actions */}
-        <div className="relative mt-4 flex items-center gap-2.5">
+        <div className="relative mt-auto flex items-center gap-2.5 pt-4">
           <button
             onClick={() => {
               load();

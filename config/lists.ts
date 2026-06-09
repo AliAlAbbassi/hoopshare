@@ -136,7 +136,6 @@ const leadLists: ListConfig[] = [
     url: "https://pub-7195158a9e7043738d3e5e4fc10a5195.r2.dev/opencx_tours.csv",
     accent: "amber",
     icon: "compass",
-    note: "FareHarbor is already an Open customer — here are 2,100 more like them.",
   },
   {
     id: "simplybook",

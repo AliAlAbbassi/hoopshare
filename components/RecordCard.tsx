@@ -8,7 +8,6 @@ import {
 import {
   classifyValue,
   ensureProtocol,
-  formatNumber,
   humanizeColumn,
   isInternalColumn,
   locationColumns,
@@ -30,12 +29,10 @@ const MAX_TAGS = 6;
 export function RecordCard({
   item,
   columns,
-  scoreLabel,
   index,
 }: {
   item: SampleRow;
   columns: string[];
-  scoreLabel: string | null;
   index: number;
 }) {
   const record = item.values;
@@ -86,14 +83,6 @@ export function RecordCard({
           )}
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
-          {typeof item.score === "number" && Number.isFinite(item.score) && (
-            <span
-              className="inline-flex items-center gap-1 rounded-full bg-foreground px-2.5 py-1 text-[11px] font-bold text-background"
-              title={scoreLabel ?? "Score"}
-            >
-              {scoreLabel ?? "Score"} {formatNumber(item.score)}
-            </span>
-          )}
           {platform && (
             <span className="inline-flex items-center gap-1 rounded-full bg-foreground/[0.06] px-2.5 py-1 text-[11px] font-medium text-muted">
               <Building2 className="size-3" aria-hidden="true" />
