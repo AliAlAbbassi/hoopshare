@@ -58,6 +58,42 @@ const RX = {
   internal: /(slug|_id$|^id$|^uuid$|guid|confidence|\bsource\b|\bactive\b)/i,
 };
 
+// Support-volume score, decision-maker, and contact columns.
+const RX_SCORE = /(staff[\s_]?count|room[\s_]?count|employees|headcount|team[\s_]?size|\bstaff\b|\brooms?\b|\bseats\b)/i;
+const RX_OWNER_POS = /(decision[\s_]?maker|owner|principal|founder)/i;
+const RX_OWNER_NEG = /(title|role|email|phone|confidence|count|contacts)/i;
+const RX_EMAIL_NAME = /e-?mail/i;
+const RX_PHONE_NAME = /(phone|tel|mobile|cell)/i;
+
+/** The column we treat as a support-volume score (staff/room count). */
+export function scoreColumn(columns: string[]): string | undefined {
+  return columns.find((c) => RX_SCORE.test(norm(c)));
+}
+
+/** A named decision-maker / owner column (not title/role/email). */
+export function ownerColumn(columns: string[]): string | undefined {
+  return columns.find((c) => {
+    const n = norm(c);
+    return RX_OWNER_POS.test(n) && !RX_OWNER_NEG.test(n);
+  });
+}
+
+export function emailColumns(columns: string[]): string[] {
+  return columns.filter((c) => RX_EMAIL_NAME.test(norm(c)));
+}
+
+export function phoneColumns(columns: string[]): string[] {
+  return columns.filter((c) => RX_PHONE_NAME.test(norm(c)));
+}
+
+/** Parse a numeric score out of a cell (e.g. "1,200" → 1200). */
+export function parseScore(v: string): number | null {
+  const m = v.replace(/[, ]/g, "").match(/-?\d+(?:\.\d+)?/);
+  if (!m) return null;
+  const n = Number(m[0]);
+  return Number.isFinite(n) ? n : null;
+}
+
 /** Columns whose normalised name *is* the platform. */
 const PLATFORM_NAMES = new Set([
   "platform",

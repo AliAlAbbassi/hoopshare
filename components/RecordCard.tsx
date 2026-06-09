@@ -8,14 +8,17 @@ import {
 import {
   classifyValue,
   ensureProtocol,
+  formatNumber,
   humanizeColumn,
   isInternalColumn,
   locationColumns,
   pickHeadingColumn,
   platformColumn,
   prettyHost,
+  scoreColumn,
   asTags,
 } from "@/lib/format";
+import type { SampleRow } from "@/lib/types";
 
 const MAX_TAGS = 6;
 
@@ -25,29 +28,33 @@ const MAX_TAGS = 6;
  * hiding empty + internal (slug/id) fields.
  */
 export function RecordCard({
-  record,
+  item,
   columns,
+  scoreLabel,
   index,
 }: {
-  record: Record<string, string>;
+  item: SampleRow;
   columns: string[];
+  scoreLabel: string | null;
   index: number;
 }) {
+  const record = item.values;
   const headingCol = pickHeadingColumn(columns);
   const heading = (headingCol && record[headingCol]?.trim()) || `Record ${index + 1}`;
 
   const loc = locationColumns(columns);
   const platformCol = platformColumn(columns);
   const platform = platformCol ? record[platformCol]?.trim() : "";
+  const scoreCol = scoreColumn(columns);
 
   const locParts = [loc.city, loc.state, loc.country]
     .map((c) => (c ? record[c]?.trim() : ""))
     .filter(Boolean);
   const locationLine = locParts.join(", ");
 
-  // Columns already represented by the heading / location / platform pill.
+  // Columns already represented by the heading / location / platform / score.
   const consumed = new Set(
-    [headingCol, platformCol, loc.city, loc.state, loc.country].filter(
+    [headingCol, platformCol, scoreCol, loc.city, loc.state, loc.country].filter(
       Boolean,
     ) as string[],
   );
@@ -78,12 +85,22 @@ export function RecordCard({
             </p>
           )}
         </div>
-        {platform && (
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-foreground/[0.06] px-2.5 py-1 text-[11px] font-medium text-muted">
-            <Building2 className="size-3" aria-hidden="true" />
-            {platform}
-          </span>
-        )}
+        <div className="flex shrink-0 flex-col items-end gap-1">
+          {typeof item.score === "number" && Number.isFinite(item.score) && (
+            <span
+              className="inline-flex items-center gap-1 rounded-full bg-foreground px-2.5 py-1 text-[11px] font-bold text-background"
+              title={scoreLabel ?? "Score"}
+            >
+              {scoreLabel ?? "Score"} {formatNumber(item.score)}
+            </span>
+          )}
+          {platform && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-foreground/[0.06] px-2.5 py-1 text-[11px] font-medium text-muted">
+              <Building2 className="size-3" aria-hidden="true" />
+              {platform}
+            </span>
+          )}
+        </div>
       </div>
 
       {details.length > 0 && (

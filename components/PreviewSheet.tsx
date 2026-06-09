@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { X, FileWarning } from "lucide-react";
 import clsx from "clsx";
@@ -8,7 +8,7 @@ import type { ListConfig } from "@/config/lists";
 import type { ListData } from "@/lib/types";
 import type { LoadStatus } from "@/lib/useListData";
 import { accentClasses } from "@/lib/accent";
-import { formatNumber, formatBytes } from "@/lib/format";
+import { formatNumber, formatBytes, pickHeadingColumn } from "@/lib/format";
 import { ListIcon } from "./ListIcon";
 import { RecordCard } from "./RecordCard";
 import { DownloadButton } from "./DownloadButton";
@@ -29,8 +29,23 @@ export function PreviewSheet({
   const a = accentClasses[config.accent];
   const [mounted, setMounted] = useState(false);
   const [shown, setShown] = useState(false);
+  const [sortBy, setSortBy] = useState<"score" | "name">("score");
   const panelRef = useRef<HTMLDivElement>(null);
   const isXlsx = /\.xlsx(\?|$)/i.test(config.url);
+
+  const sortedSample = useMemo(() => {
+    if (!data) return [];
+    const headingCol = pickHeadingColumn(data.columns);
+    const arr = [...data.sample];
+    if (sortBy === "score") {
+      arr.sort((x, y) => (y.score ?? -1) - (x.score ?? -1));
+    } else if (headingCol) {
+      arr.sort((x, y) =>
+        (x.values[headingCol] || "").localeCompare(y.values[headingCol] || ""),
+      );
+    }
+    return arr;
+  }, [data, sortBy]);
 
   useEffect(() => {
     if (open) {
@@ -150,9 +165,28 @@ export function PreviewSheet({
               </p>
             </div>
           ) : (
-            data!.sample.map((record, i) => (
-              <RecordCard key={i} record={record} columns={data!.columns} index={i} />
-            ))
+            <>
+              {data!.scoreLabel && sortedSample.length > 1 && (
+                <div className="flex items-center gap-1.5 pb-1 text-xs">
+                  <span className="text-muted">Sort by</span>
+                  <SortButton active={sortBy === "score"} onClick={() => setSortBy("score")}>
+                    {data!.scoreLabel} ↓
+                  </SortButton>
+                  <SortButton active={sortBy === "name"} onClick={() => setSortBy("name")}>
+                    Name
+                  </SortButton>
+                </div>
+              )}
+              {sortedSample.map((item, i) => (
+                <RecordCard
+                  key={i}
+                  item={item}
+                  columns={data!.columns}
+                  scoreLabel={data!.scoreLabel}
+                  index={i}
+                />
+              ))}
+            </>
           )}
         </div>
 
@@ -164,13 +198,37 @@ export function PreviewSheet({
             accentButton={a.button}
             accentRing={a.ring}
             size="lg"
-            label={sizeLabel ? `Download full file · ${sizeLabel}` : "Download full file"}
+            label={sizeLabel ? `Download · ${sizeLabel}` : "Download"}
             className="w-full"
           />
         </div>
       </div>
     </div>,
     document.body,
+  );
+}
+
+function SortButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={clsx(
+        "rounded-full border px-2.5 py-1 font-medium transition-colors",
+        active
+          ? "border-foreground bg-foreground text-background"
+          : "border-border text-muted hover:text-foreground",
+      )}
+    >
+      {children}
+    </button>
   );
 }
 

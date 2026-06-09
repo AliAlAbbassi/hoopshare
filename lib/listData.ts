@@ -3,9 +3,18 @@ import { unstable_cache } from "next/cache";
 import ExcelJS from "exceljs";
 import type { ListConfig } from "@/config/lists";
 import { formatOf } from "@/config/lists";
-import type { ListData, Tally } from "./types";
+import type { ListData, SampleRow, Tally } from "./types";
 import { iterateRecords } from "./csv";
-import { platformColumn, geoPreference, formatMaybeNumber } from "./format";
+import {
+  platformColumn,
+  geoPreference,
+  formatMaybeNumber,
+  scoreColumn,
+  ownerColumn,
+  emailColumns,
+  phoneColumns,
+  parseScore,
+} from "./format";
 
 const EMPTY = (error?: string): ListData => ({
   columns: [],
@@ -14,8 +23,14 @@ const EMPTY = (error?: string): ListData => ({
   bytes: null,
   platforms: [],
   regions: [],
+  scoreLabel: null,
+  scoreTop: null,
+  withContacts: 0,
   error,
 });
+
+/** A candidate sample row kept while scanning (refs only — no copying). */
+type Cand = { rec: string[]; score: number | null; hasOwner: boolean };
 
 function topN(tally: Map<string, number>, n: number): Tally[] {
   return [...tally.entries()]
@@ -103,13 +118,27 @@ export async function fetchListData(
   }
 
   let columns: string[] = [];
-  const sample: Record<string, string>[] = [];
   let total = 0;
 
   let platformIdx = -1;
   const platformTally = new Map<string, number>();
   let geoIdx: number[] = [];
   let geoTallies: Map<string, number>[] = [];
+
+  let scoreIdx = -1;
+  let ownerIdx = -1;
+  let contactIdx: number[] = [];
+
+  let scoreTop: number | null = null;
+  let withContacts = 0;
+  const topCands: Cand[] = [];
+  const firstFew: string[][] = [];
+
+  // Strongest prospect first: named owner, then highest support score.
+  const better = (a: Cand, b: Cand) => {
+    if (a.hasOwner !== b.hasOwner) return a.hasOwner ? -1 : 1;
+    return (b.score ?? -1) - (a.score ?? -1);
+  };
 
   let first = true;
   for (const rec of records) {
@@ -119,6 +148,13 @@ export async function fetchListData(
       if (pc) platformIdx = columns.indexOf(pc);
       geoIdx = geoPreference(columns).map((c) => columns.indexOf(c));
       geoTallies = geoIdx.map(() => new Map<string, number>());
+      const sc = scoreColumn(columns);
+      if (sc) scoreIdx = columns.indexOf(sc);
+      const oc = ownerColumn(columns);
+      if (oc) ownerIdx = columns.indexOf(oc);
+      contactIdx = [...emailColumns(columns), ...phoneColumns(columns)].map((c) =>
+        columns.indexOf(c),
+      );
       first = false;
       continue;
     }
@@ -127,12 +163,24 @@ export async function fetchListData(
 
     total++;
 
-    if (sample.length < sampleSize) {
-      const obj: Record<string, string> = {};
-      columns.forEach((c, i) => {
-        obj[c] = (rec[i] ?? "").trim();
-      });
-      sample.push(obj);
+    const score = scoreIdx >= 0 ? parseScore((rec[scoreIdx] ?? "").trim()) : null;
+    if (score !== null && (scoreTop === null || score > scoreTop)) scoreTop = score;
+
+    const hasContact = contactIdx.some((i) => (rec[i] ?? "").trim().length > 0);
+    const hasOwner = ownerIdx >= 0 && (rec[ownerIdx] ?? "").trim().length > 0;
+
+    if (firstFew.length < sampleSize) firstFew.push(rec);
+
+    if (hasContact) {
+      withContacts++;
+      const cand: Cand = { rec, score, hasOwner };
+      if (topCands.length < sampleSize) {
+        topCands.push(cand);
+        topCands.sort(better);
+      } else if (better(cand, topCands[topCands.length - 1]) < 0) {
+        topCands[topCands.length - 1] = cand;
+        topCands.sort(better);
+      }
     }
 
     if (platformIdx >= 0) {
@@ -146,6 +194,23 @@ export async function fetchListData(
   }
 
   if (columns.length === 0) return EMPTY("The file looks empty.");
+
+  // Sample: best contact rows first, padded with the first rows if needed.
+  const chosenRecs: string[][] = topCands.map((c) => c.rec);
+  for (const rec of firstFew) {
+    if (chosenRecs.length >= sampleSize) break;
+    if (!chosenRecs.includes(rec)) chosenRecs.push(rec);
+  }
+  const sample: SampleRow[] = chosenRecs.slice(0, sampleSize).map((rec) => {
+    const values: Record<string, string> = {};
+    columns.forEach((c, i) => {
+      values[c] = (rec[i] ?? "").trim();
+    });
+    return {
+      values,
+      score: scoreIdx >= 0 ? parseScore(rec[scoreIdx] ?? "") : null,
+    };
+  });
 
   // Broadest geography that actually varies (country → state → city).
   let regions: Tally[] = [];
@@ -166,6 +231,9 @@ export async function fetchListData(
     bytes,
     platforms: topN(platformTally, 4),
     regions,
+    scoreLabel: scoreIdx >= 0 && scoreTop !== null ? "Support score" : null,
+    scoreTop,
+    withContacts,
   };
 }
 
@@ -178,7 +246,7 @@ export async function fetchListData(
 export function getListData(list: ListConfig, sampleSize = 5): Promise<ListData> {
   return unstable_cache(
     () => fetchListData(list, sampleSize),
-    ["list-data", list.id, list.url, String(sampleSize)],
+    ["list-data:v2", list.id, list.url, String(sampleSize)],
     { revalidate: 3600, tags: ["lists", `list:${list.id}`] },
   )();
 }

@@ -60,18 +60,20 @@ export type ListConfig = {
   icon: IconKey;
   /** Optional ribbon, e.g. "All". */
   badge?: string;
+  /** Optional highlighted callout line on the card. */
+  note?: string;
 };
 
 export const site = {
-  name: "OpenCX",
-  tagline:
-    "Curated lead lists for appointments, healthcare, tours and hotels. Preview a sample, then download the full file.",
+  name: "Open",
+  headline: "20,000 businesses that look like Open's best customers.",
+  tagline: "Scored, enriched, ready to download.",
   footnote:
     "Lists are provided as-is. Always comply with applicable privacy & outreach laws.",
 };
 
 /** Sections render in this order (groups not listed fall to the end). */
-export const GROUP_ORDER = ["Leads & bookings", "Hotels"] as const;
+export const GROUP_ORDER = ["Leads", "Hotels"] as const;
 
 /** Sub-sections render in this order within their group. */
 export const SUBGROUP_ORDER = [
@@ -89,11 +91,11 @@ const leadLists: ListConfig[] = [
   {
     id: "leads-all",
     title: "All Leads",
-    group: "Leads & bookings",
+    group: "Leads",
     subgroup: "Everything",
     category: "Combined",
     description:
-      "The full OpenCX lead database — every appointments, healthcare and tours record in one file.",
+      "The full lead database — every appointments, healthcare and tours record in one file.",
     url: "https://pub-7195158a9e7043738d3e5e4fc10a5195.r2.dev/opencx_leads_all.csv",
     accent: "indigo",
     icon: "table",
@@ -101,8 +103,8 @@ const leadLists: ListConfig[] = [
   },
   {
     id: "appointments",
-    title: "Appointments & Bookings",
-    group: "Leads & bookings",
+    title: "Appointments",
+    group: "Leads",
     subgroup: "By vertical",
     category: "Appointments",
     description:
@@ -114,7 +116,7 @@ const leadLists: ListConfig[] = [
   {
     id: "healthcare",
     title: "Healthcare Clinics",
-    group: "Leads & bookings",
+    group: "Leads",
     subgroup: "By vertical",
     category: "Healthcare",
     description:
@@ -126,7 +128,7 @@ const leadLists: ListConfig[] = [
   {
     id: "tours",
     title: "Tours & Activities",
-    group: "Leads & bookings",
+    group: "Leads",
     subgroup: "By vertical",
     category: "Tours",
     description:
@@ -134,11 +136,12 @@ const leadLists: ListConfig[] = [
     url: "https://pub-7195158a9e7043738d3e5e4fc10a5195.r2.dev/opencx_tours.csv",
     accent: "amber",
     icon: "compass",
+    note: "FareHarbor is already an Open customer — here are 2,100 more like them.",
   },
   {
     id: "simplybook",
     title: "SimplyBook.me",
-    group: "Leads & bookings",
+    group: "Leads",
     subgroup: "By platform",
     category: "SimplyBook",
     description: "Appointment-based businesses running on SimplyBook.me.",
@@ -149,7 +152,7 @@ const leadLists: ListConfig[] = [
   {
     id: "setmore",
     title: "Setmore",
-    group: "Leads & bookings",
+    group: "Leads",
     subgroup: "By platform",
     category: "Setmore",
     description: "Appointment-based businesses running on Setmore.",
@@ -160,7 +163,7 @@ const leadLists: ListConfig[] = [
   {
     id: "janeapp",
     title: "JaneApp",
-    group: "Leads & bookings",
+    group: "Leads",
     subgroup: "By platform",
     category: "JaneApp",
     description: "Health & wellness clinics running on JaneApp.",
@@ -171,7 +174,7 @@ const leadLists: ListConfig[] = [
   {
     id: "fareharbor",
     title: "FareHarbor",
-    group: "Leads & bookings",
+    group: "Leads",
     subgroup: "By platform",
     category: "FareHarbor",
     description: "Tour & activity operators running on FareHarbor.",
@@ -295,6 +298,18 @@ export const lists: ListConfig[] = [
 
 export function getList(id: string): ListConfig | undefined {
   return lists.find((l) => l.id === id);
+}
+
+/** These lists are pinned to the front, in this order. Everything else follows. */
+const PRIORITY_IDS = ["healthcare", "hotels-cloudbeds", "hotels-rms"];
+
+export function orderedLists(): ListConfig[] {
+  const prioritySet = new Set(PRIORITY_IDS);
+  const pinned = PRIORITY_IDS.map((id) => lists.find((l) => l.id === id)).filter(
+    (l): l is ListConfig => Boolean(l),
+  );
+  const rest = lists.filter((l) => !prioritySet.has(l.id));
+  return [...pinned, ...rest];
 }
 
 /** csv vs xlsx, from the url extension. */

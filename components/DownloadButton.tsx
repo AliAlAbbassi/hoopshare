@@ -6,7 +6,7 @@ export function DownloadButton({
   filename,
   accentButton,
   accentRing,
-  label = "Download CSV",
+  label = "Download",
   size = "md",
   className,
 }: {
@@ -25,7 +25,7 @@ export function DownloadButton({
       href={`/api/download/${id}`}
       download={filename}
       className={clsx(
-        "inline-flex items-center justify-center gap-2 rounded-xl font-semibold shadow-lg transition-[transform,background-color] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
+        "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-transparent font-semibold transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2",
         size === "lg" ? "px-5 py-3 text-[15px]" : "px-4 py-2.5 text-sm",
         accentButton,
         accentRing,

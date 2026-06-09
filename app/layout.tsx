@@ -15,13 +15,13 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: `${site.name} — Data Lists`,
+    default: site.name,
     template: `%s · ${site.name}`,
   },
   description: site.tagline,
   applicationName: site.name,
   openGraph: {
-    title: `${site.name} — Data Lists`,
+    title: site.name,
     description: site.tagline,
     type: "website",
   },

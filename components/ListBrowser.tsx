@@ -3,38 +3,33 @@
 import { useEffect, useMemo, useState } from "react";
 import { Search, X, SearchX, ChevronDown, ChevronUp } from "lucide-react";
 import clsx from "clsx";
-import type { ListConfig, Group } from "@/config/lists";
+import type { ListConfig } from "@/config/lists";
 import { ListCard } from "./ListCard";
 
 const PAGE_SIZE = 12;
 
-export function ListBrowser({ groups }: { groups: Group[] }) {
+export function ListBrowser({ lists }: { lists: ListConfig[] }) {
   const [query, setQuery] = useState("");
   const [activeGroup, setActiveGroup] = useState<string>("All");
 
-  const flat = useMemo(
-    () => groups.flatMap((g) => g.subgroups.flatMap((s) => s.lists)),
-    [groups],
-  );
-  const groupChips = useMemo(() => ["All", ...groups.map((g) => g.name)], [groups]);
+  // Group filter chips, in first-seen order.
+  const groupChips = useMemo(() => {
+    const seen: string[] = [];
+    for (const l of lists) if (!seen.includes(l.group)) seen.push(l.group);
+    return ["All", ...seen];
+  }, [lists]);
 
   const q = query.trim().toLowerCase();
-  const searching = q.length > 0;
 
-  const results = useMemo(() => {
-    if (!searching) return [];
-    return flat.filter((l) => {
+  const filtered = useMemo(() => {
+    return lists.filter((l) => {
       if (activeGroup !== "All" && l.group !== activeGroup) return false;
+      if (!q) return true;
       const hay =
         `${l.title} ${l.category} ${l.group} ${l.subgroup ?? ""} ${l.description}`.toLowerCase();
       return hay.includes(q);
     });
-  }, [flat, q, searching, activeGroup]);
-
-  const visibleGroups = useMemo(
-    () => groups.filter((g) => activeGroup === "All" || g.name === activeGroup),
-    [groups, activeGroup],
-  );
+  }, [lists, q, activeGroup]);
 
   return (
     <div>
@@ -50,7 +45,7 @@ export function ListBrowser({ groups }: { groups: Group[] }) {
             inputMode="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={`Search ${flat.length} lists — try "texas" or "cloudbeds"…`}
+            placeholder={`Search ${lists.length} lists — try "texas" or "cloudbeds"…`}
             aria-label="Search lists"
             className="w-full rounded-2xl border border-border bg-surface py-3 pl-11 pr-10 text-[15px] text-foreground shadow-sm outline-none transition-shadow placeholder:text-muted focus:shadow-md focus:ring-2 focus:ring-foreground/10"
           />
@@ -85,59 +80,18 @@ export function ListBrowser({ groups }: { groups: Group[] }) {
         )}
       </div>
 
-      {/* Search results (flat, paginated) */}
-      {searching ? (
-        results.length > 0 ? (
-          <section>
-            <p className="mb-3 text-sm text-muted">
-              {results.length} {results.length === 1 ? "result" : "results"} for
-              <span className="font-medium text-foreground"> “{query.trim()}”</span>
-            </p>
-            <PaginatedGrid lists={results} />
-          </section>
-        ) : (
-          <EmptyState />
-        )
+      {q && (
+        <p className="mb-3 text-sm text-muted">
+          {filtered.length} {filtered.length === 1 ? "result" : "results"}
+        </p>
+      )}
+
+      {filtered.length > 0 ? (
+        <PaginatedGrid lists={filtered} />
       ) : (
-        // Grouped browse
-        <div className="space-y-12">
-          {visibleGroups.map((group) => (
-            <section key={group.name}>
-              <GroupHeader
-                name={group.name}
-                count={group.subgroups.reduce((n, s) => n + s.lists.length, 0)}
-              />
-              <div className="space-y-8">
-                {group.subgroups.map((sub) => (
-                  <div key={sub.name || "_"}>
-                    {sub.name && <SubgroupHeader name={sub.name} count={sub.lists.length} />}
-                    <PaginatedGrid lists={sub.lists} />
-                  </div>
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
+        <EmptyState />
       )}
     </div>
-  );
-}
-
-function GroupHeader({ name, count }: { name: string; count: number }) {
-  return (
-    <div className="mb-5 flex items-baseline gap-3">
-      <h2 className="text-xl font-bold tracking-tight text-foreground">{name}</h2>
-      <span className="text-sm font-medium text-muted">{count}</span>
-    </div>
-  );
-}
-
-function SubgroupHeader({ name, count }: { name: string; count: number }) {
-  return (
-    <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">
-      {name}
-      <span className="ml-2 font-medium normal-case text-muted/70">{count}</span>
-    </h3>
   );
 }
 
@@ -145,7 +99,7 @@ function SubgroupHeader({ name, count }: { name: string; count: number }) {
 function PaginatedGrid({ lists }: { lists: ListConfig[] }) {
   const [count, setCount] = useState(() => Math.min(PAGE_SIZE, lists.length));
 
-  // Reset when the underlying list changes (e.g. a new search query).
+  // Reset when the underlying list changes (e.g. a new search / filter).
   useEffect(() => {
     setCount(Math.min(PAGE_SIZE, lists.length));
   }, [lists]);
@@ -167,7 +121,7 @@ function PaginatedGrid({ lists }: { lists: ListConfig[] }) {
           {remaining > 0 && (
             <button
               onClick={() => setCount((c) => Math.min(c + PAGE_SIZE, lists.length))}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-4 py-2 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-foreground/[0.04]"
+              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-foreground/[0.04]"
             >
               Show {Math.min(PAGE_SIZE, remaining)} more
               <span className="text-muted">· {remaining} left</span>
